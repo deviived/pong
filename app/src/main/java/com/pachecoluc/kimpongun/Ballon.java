@@ -1,6 +1,5 @@
 package com.pachecoluc.kimpongun;
 
-import android.graphics.Color;
 import android.graphics.Paint;
 
 public class Ballon {
@@ -11,19 +10,13 @@ public class Ballon {
     private float radius;
     private Paint paint = new Paint();
 
-
     public Ballon(float posX, float posY, float vitX, float vitY, float rad, int color){
         this.xPos = posX;
         this.yPos = posY;
         this.xVit = vitX;
         this.yVit = vitY;
         this.radius = rad;
-        paint.setColor(color);
-    }
-
-    public void setPos(float x, float y){
-        this.xPos = x;
-        this.yPos = y;
+        this.paint.setColor(color);
     }
 
     public void setPosX(float x){
@@ -48,7 +41,6 @@ public class Ballon {
 
     public float getVitY(){
         return this.yVit;
-
     }
 
     public void setVitX(float vitX){
