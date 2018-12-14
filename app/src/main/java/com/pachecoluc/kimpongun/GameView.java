@@ -8,7 +8,9 @@ import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.media.AudioManager;
 import android.media.MediaPlayer;
+import android.media.SoundPool;
 import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
@@ -20,84 +22,101 @@ public class GameView extends View implements View.OnTouchListener {
     private Paint paint;
     private MyScreen myScreen = new MyScreen(100,100);
     private float doigt=300;
-    private Ballon ballon = new Ballon(200, 150, 5, 8, 50, Color.BLUE);
-    //private Ballon ballon2 = new Ballon(200, 150, 5, 1, 30, Color.GREEN);
-    //private Ballon ballon3 = new Ballon(200, 150, 8, 1, 60, Color.RED);
+
     float textSize;
     Intent gameOverIntent;
     boolean fail = false;
-    Bitmap nuage;
-    Bitmap boule;
-    Bitmap bouleResized;
-    Bitmap nuageResized;
-    Bitmap nuageEnnemi;
-    Bitmap nuageResizedEnnemi;
-    MediaPlayer opening;
+    float acceleration;
+
+    //SOUNDS
+    private MediaPlayer opening;
+    private MediaPlayer bruitage;
+    //private SoundPool soundPool;
+    private int soundID;
+    boolean plays = false, loaded = false;
+
+
+    //SCREEN ELEMENTS
     private Ennemi ennemi = new Ennemi(200, 0, 2, 0);
-    float ennemiPosX = 400;
+    private Ballon ballon = new Ballon(200, 150, 10, 8, 50, Color.BLUE);
+
+    //BITMAP
+    private Bitmap nuage;
+    private Bitmap boule;
+    private Bitmap bouleResized;
+    private Bitmap nuageResized;
+    private Bitmap nuageEnnemi;
+    private Bitmap nuageResizedEnnemi;
 
 
     public GameView(Context context) {
         super(context);
+
+        //SET RESOURCES
         paint = new Paint();
-        paint.setColor(Color.MAGENTA);
         this.setBackgroundResource(R.drawable.fond_db);
 
+        //CLOUDS
         nuage = BitmapFactory.decodeResource(getResources(), R.drawable.nuagemagique);
-        nuageResized = Bitmap.createScaledBitmap(nuage, 296, 141, false);
-
+        nuageResized = Bitmap.createScaledBitmap(nuage, 269, 128, false);
         nuageEnnemi = BitmapFactory.decodeResource(getResources(), R.drawable.nuage_ennemi);
-        nuageResizedEnnemi = Bitmap.createScaledBitmap(nuageEnnemi, 296, 141, false);
+        nuageResizedEnnemi = Bitmap.createScaledBitmap(nuageEnnemi, 269, 128, false);
 
-        opening = MediaPlayer.create(getContext(), R.raw.opening_db);
-        opening.start();
-
+        //BALL
         boule = BitmapFactory.decodeResource(getResources(), R.drawable.bouledudragon);
-        bouleResized = Bitmap.createScaledBitmap(boule, 120, 120, false);
+        bouleResized = Bitmap.createScaledBitmap(boule, 90, 90, false);
 
+        //SOUNDS
+        opening = MediaPlayer.create(getContext(), R.raw.opening_db);
+        bruitage = MediaPlayer.create(getContext(), R.raw.sound_effect_punch);
+
+        // Load the sounds
+/*
+        soundPool = new SoundPool(10, AudioManager.STREAM_MUSIC, 0);
+        soundPool.setOnLoadCompleteListener(new SoundPool.OnLoadCompleteListener() {
+            @Override
+            public void onLoadComplete(SoundPool soundPool, int sampleId, int status) {
+                loaded = true;
+            }
+        });
+        soundID = soundPool.load(getContext(), R.raw.sound_effect_punch, 1);
+*/
+        opening.start();
+        bruitage.start();
         gameOverIntent = new Intent(getContext(), GameOver.class);
-
         this.setOnTouchListener(this);
     }
 
     @Override
     protected void onDraw(Canvas canvas) {
-        paint.setTextSize(80);
-        textSize = paint.measureText("NUAGE12");
+
+        //GET CANVAS SIZE
         myScreen.setWidth(canvas.getWidth());
         myScreen.setHeight(canvas.getHeight());
 
-        //canvas.drawCircle(ballon.getPosX(), ballon.getPosY(), ballon.getRad(), ballon.getColor());
-        canvas.drawBitmap(bouleResized,ballon.getPosX(), ballon.getPosY(),paint);
+        //DRAW SCREEN ELEMENTS
+        canvas.drawBitmap(bouleResized, ballon.getPosX()-45, ballon.getPosY()-45,paint);
+        canvas.drawBitmap(nuageResized,doigt-134, myScreen.getHeight()-100, paint);
+        canvas.drawBitmap(nuageResizedEnnemi, ennemi.getPosX()-134, -10, paint);
 
-        //canvas.drawText("BAR",doigt-(textSize/2), myScreen.getHeight(), paint);
-        canvas.drawBitmap(nuageResized,doigt-(296/2), myScreen.getHeight()-120, paint);
-
-        canvas.drawBitmap(nuageResizedEnnemi, ennemiPosX-148, 0, paint);
         updateDraw();
     }
 
-    public boolean onTouch(View v, MotionEvent m){
-        doigt = m.getX();
-        return true;
-    };
-
     public void updateDraw(){
 
+        //CHECK COLLISIONS
         checkCollisions(ballon);
-        checkCollisionEnnemy();
+        checkCollisionEnnemy(ballon);
 
+        //MOVEMENTS
         ballMovement(ballon);
-
-        //ennemiMovement(ennemi);
-
-        ennemiPosX = iA(ennemi);
+        iA(ennemi);
 
         invalidate();
     }
 
     public void checkCollisions(Ballon ball){
-        if(ball.getPosX() < 0 || ball.getPosX() > myScreen.getWidth()-120){
+        if(ball.getPosX() < 0 || ball.getPosX() > myScreen.getWidth()-45){
             ball.setVitX(ball.getVitX()*-1);
         }
         if(ball.getPosY() < 0){
@@ -107,8 +126,14 @@ public class GameView extends View implements View.OnTouchListener {
             fail = true;
             gameOver();
         }
-        if((Math.abs(doigt - ball.getPosX()) <= (296/2)) && (myScreen.getHeight()-(ball.getPosY()+60)<=120)){
-            ball.setVitY(-5);
+        if((Math.abs(doigt - ball.getPosX()) <= 134) && (myScreen.getHeight()-(ball.getPosY()+45)<=65)){
+            //soundPool.play(soundID, 100, 100, 1, 0, 1f);
+
+            bruitage.reset();
+            acceleration *= -1;
+            acceleration -= 1;
+            ball.setVitY(-8 + acceleration);
+
         }
     }
 
@@ -117,39 +142,54 @@ public class GameView extends View implements View.OnTouchListener {
         ball.setPosY(ball.getPosY()+ball.getVitY());
     }
 
-    public float iA(Ennemi enemy){
-        float middle = myScreen.getHeight()/2;
-        if(ballon.getPosY() < middle) {
+    public void iA(Ennemi enemy){
+        float middleH = myScreen.getHeight()/2;
+        float middleW = myScreen.getWidth()/2;
+        if(ballon.getPosY() < middleH) {
+            bruitage.pause();
             if(enemy.getPosX() < ballon.getPosX()) {
-                ennemiPosX+=Math.abs(ballon.getVitX())-5;
+                enemy.setVitX(9);
             } else {
-                ennemiPosX-=Math.abs(ballon.getVitX())-5;
+                enemy.setVitX(-9);
             }
         } else {
-            ennemiPosX=middle;
+            if(enemy.getPosX() < middleW-30){
+                enemy.setVitX(9);
+            }
+            if(enemy.getPosX() > middleW+30){
+                enemy.setVitX(-9);
+            }
         }
-        return ennemiPosX;
-
+        enemy.setPosX(enemy.getPosX()+enemy.getVitX());
     }
 
-    public void ennemiMovement(Ennemi enemy){
-        enemy.setPosX(enemy.getVitX());
+    public void checkCollisionEnnemy(Ballon ball) {
+        if((Math.abs(ennemi.getPosX() - ball.getPosX()) <= 134) && Math.abs(0-ball.getPosY()) <= 65){
+            //soundPool.resume(soundID);
+            //soundPool.play(soundID, 100, 100, 1, 0, 1f);
+            bruitage.reset();
+            acceleration *= -1;
+            acceleration += 1;
+            ball.setVitY(8 + acceleration);
+        }
     }
-
-    public boolean checkCollisionEnnemy() {
-        return (Math.abs(ballon.getPosX()-ennemiPosX) < 148 && (ballon.getPosY()-120 >= 35 && ballon.getPosY()-120 <= 95)) ? true:false;
-    }
-
 
     public void gameOver(){
+        opening.stop();
         getContext().startActivity(gameOverIntent);
         Activity activity = (Activity) getContext();
         activity.finish();
     }
 
+    public boolean onTouch(View v, MotionEvent m){
+        //GET TOUCH XPOS
+        doigt = m.getX();
+        return true;
+    };
+
     @Override
-    protected void onVisibilityChanged(View changedView, int visibility) {
-        super.onVisibilityChanged(changedView, visibility);
+    protected void onVisibilityChanged(View GameView, int visibility) {
+        super.onVisibilityChanged(GameView, visibility);
         if (visibility == View.VISIBLE) {
             //onResume called }
             opening.start();
